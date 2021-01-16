@@ -49,10 +49,13 @@ program:
   mov cr0, eax
 
   # Long jump
+  .byte 0x66
   .byte 0xea
-  .word OFFSET protected16
-  .word 0x8
-  
+  .word OFFSET protected32
+  .word 0
+  .word 0x20
+  .word 0
+
 protected16:
   mov ax, 0x18
   mov ds, ax  # Video buffer
@@ -61,6 +64,15 @@ protected16:
   mov [di], al
   jmp loop
 
+.code32
+protected32:
+  mov ax, 0x28
+  mov ds, ax
+  mov edi, 0xb8000
+  mov al, 'Y'
+  mov [edi], al
+  jmp loop
+  
 loop:
   jmp loop
 
