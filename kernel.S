@@ -71,7 +71,8 @@ protected32:
   mov edi, 0xb8000
   mov al, 'Y'
   mov [edi], al
-  jmp loop
+  mov esp, 0x090000
+  call kmain
   
 loop:
   jmp loop
