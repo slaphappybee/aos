@@ -9,10 +9,11 @@ mesg_booting:
 
 gdt:
   .quad 0x0000000000000000
-  .quad 0x008F9A000000FFFF
-  .quad 0x008F92000000FFFF
-  .quad 0x00CF9A000000FFFF
-  .quad 0x00CF92000000FFFF
+  .quad 0x008F9A000000FFFF  # 0x08 16bit Code segment
+  .quad 0x008F92000000FFFF  # 0x10 16bit Data segment
+  .quad 0x008F920B8000FFFF  # 0x18 16bit Video buffer
+  .quad 0x00CF9A000000FFFF  # 0x20 32bit Code segment
+  .quad 0x00CF92000000FFFF  # 0x28 32bit Data segment
 
 gdt_desc:
   .word gdt_desc-gdt
@@ -49,11 +50,17 @@ program:
 
   # Long jump
   .byte 0xea
-  .word OFFSET protected
+  .word OFFSET protected16
   .word 0x8
   
-protected:
-    
+protected16:
+  mov ax, 0x18
+  mov ds, ax  # Video buffer
+  mov al, 'X'
+  mov di, 0
+  mov [di], al
+  jmp loop
+
 loop:
   jmp loop
 
