@@ -4,31 +4,75 @@
 start:
   jmp program
 
-mesg:
+mesg_booting:
   .asciz "Booting AOS"
+
+gdt:
+  .quad 0x0000000000000000
+  .quad 0x008F9A000000FFFF
+  .quad 0x008F92000000FFFF
+  .quad 0x00CF9A000000FFFF
+  .quad 0x00CF92000000FFFF
+
+gdt_desc:
+  .word gdt_desc-gdt
+  .word OFFSET gdt
+  .word 0  # Double word
 
 program:
   mov di, 0
-  mov si, OFFSET mesg
-  call putstr_real
+  mov si, OFFSET mesg_booting
+  call putstr
 
+# Enter protected mode
+  # Disable interrupts
+  cli 
+  
+  # Fast A20 Gate
+  in al, 0x92
+  or al, 2
+  out 0x92, al
+  
+  # Clear DS
+  mov ax, 0
+  mov ds, ax
+  
+  # LGDT
+  .word 0x010f
+  .byte 0b00010110
+  .word OFFSET gdt_desc
+  
+  # Set CR0/0
+  mov eax, cr0
+  or eax, 1
+  mov cr0, eax
+
+  # Long jump
+  .byte 0xea
+  .word OFFSET protected
+  .word 0x8
+  
+protected:
+    
 loop:
   jmp loop
 
-putstr_real:
+.code16
+
+putstr:
   # Writes cstr si to di
   mov al, [si]
   test al, al
-  jz putstr_real_end
-  call putchar_real
+  jz putstr_end
+  call putchar
   inc si
   inc di
   inc di
-  jmp putstr_real
-putstr_real_end:
+  jmp putstr
+putstr_end:
   ret
 
-putchar_real:
+putchar:
   # Writes al to screen at offset di
   mov bx, 0xb800
   mov ds, bx
