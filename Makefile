@@ -22,7 +22,7 @@ objdump: kernel.o
 	objdump -D kernel.o -M i8086 -M intel
 
 cli.o: cli.c
-	gcc -c cli.c -O2 -m32
+	gcc -c cli.c -O2 -m32 -fno-pie
 	objcopy --remove-section=.comment --remove-section=.eh_frame cli.o cli.o
 
 clean:
