@@ -21,8 +21,8 @@ test: image.bin
 objdump: kernel.o
 	objdump -D kernel.o -M i8086 -M intel
 
-cli.o: cli.c
-	gcc -c cli.c -O2 -m32 -fno-pie -fno-stack-protector
+cli.o: cli.c++
+	g++ -c cli.c++ -O2 -m32 -fno-pie -fno-stack-protector
 	objcopy --remove-section=.comment --remove-section=.eh_frame cli.o cli.o
 
 clean:

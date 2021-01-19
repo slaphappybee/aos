@@ -43,7 +43,7 @@ void kprint(const char* buf) {
 }
 
 void kprinthex16(uint16_t val) {
-    char buf[7] = "0x0000\0";
+    char buf[7] = "0x0000";
     const char *hex = "0123456789abcdef";
     
     uint8_t i = 0;
@@ -160,6 +160,7 @@ void pio_read_block(uint32_t lba_block, uint8_t sector_count, uint16_t *buffer) 
     }
 }
 
+extern "C"
 void kmain() {
     uint16_t buffer[256];
     
