@@ -22,7 +22,7 @@ objdump: kernel.o
 	objdump -D kernel.o -M i8086 -M intel
 
 cli.o: cli.c++
-	g++ -c cli.c++ -O2 -m32 -fno-pie -fno-stack-protector
+	g++ -c cli.c++ -O2 -m32 -fno-pie -fno-stack-protector -std=c++20
 	objcopy --remove-section=.comment --remove-section=.eh_frame cli.o cli.o
 
 clean:

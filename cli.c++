@@ -1,7 +1,8 @@
 #define FB ((volatile char*)0xb8000)
 #define FB_WIDTH 80
 #include <sys/io.h>
-#include <stdint.h>
+#include <cstdint>
+#include <vector>
 
 void con_setcurpos(uint16_t off) {
     outb(0x0F, 0x3D4);
@@ -160,10 +161,37 @@ void pio_read_block(uint32_t lba_block, uint8_t sector_count, uint16_t *buffer) 
     }
 }
 
+char *mem_base = reinterpret_cast<char *>(0x200000);
+
+void *kmalloc(std::size_t size) {
+    char *buf_start = mem_base;
+    mem_base = mem_base + size;
+    return buf_start;
+}
+
+void kfree(void *ptr) {
+}
+
+
+template<class T>
+struct kallocator {
+    typedef T value_type;
+    
+    T* allocate(std::size_t size) {
+        return static_cast<T *>(kmalloc(size));
+    }
+    
+    void deallocate(T *value, std::size_t size) {
+        kfree(value);
+    }
+};
+
+template<class T>
+using kvector =  std::vector<T, kallocator<T>>;
+
 extern "C"
 void kmain() {
-    uint16_t buffer[256];
-    
+    kvector<uint16_t> buffer(256);
     cls();
 
     kprint("AOS version 0.1 starting\n");
@@ -171,7 +199,7 @@ void kmain() {
     pci_enumerate();
     
     kprint("Reading 1 block from PIO\n");
-    pio_read_block(0, 1, buffer);
+    pio_read_block(0, 1, buffer.data());
     
     kprint("...OK\n");
     kprinthex16(buffer[0]);
