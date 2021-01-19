@@ -16,13 +16,13 @@ image.bin: kernel.bin boot.bin
 	cat boot.bin kernel.bin > image.bin
 
 test: image.bin
-	qemu-system-x86_64 image.bin
+	qemu-system-x86_64 -drive file=image.bin,if=ide,format=raw
 
 objdump: kernel.o
 	objdump -D kernel.o -M i8086 -M intel
 
 cli.o: cli.c
-	gcc -c cli.c -O2 -m32 -fno-pie
+	gcc -c cli.c -O2 -m32 -fno-pie -fno-stack-protector
 	objcopy --remove-section=.comment --remove-section=.eh_frame cli.o cli.o
 
 clean:
