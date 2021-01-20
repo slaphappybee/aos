@@ -3,6 +3,7 @@
 #include <sys/io.h>
 #include <cstdint>
 #include <vector>
+#include "irq.h++"
 
 void con_setcurpos(uint16_t off) {
     outb(0x0F, 0x3D4);
@@ -189,19 +190,53 @@ struct kallocator {
 template<class T>
 using kvector =  std::vector<T, kallocator<T>>;
 
+void load_idt(uint32_t *descriptor) {
+    __asm__ (
+        "lidtl (%0)"
+    :: "r"(descriptor)
+    );
+}
+
+void remap_pic() {
+    outb(0x11, 0x20);
+    outb(0x11, 0xA0);
+    outb(0x20, 0x21);
+    outb(40,   0xA1);
+    outb(0x04, 0x21);
+    outb(0x02, 0xA1);
+    outb(0x01, 0x21);
+    outb(0x01, 0xA1);
+    outb(0x0,  0x21);
+    outb(0x0,  0xA1);
+}
+
 extern "C"
 void kmain() {
     kvector<uint16_t> buffer(256);
+    kvector<idt_entry> idt(256);
+    
+    remap_pic();
+    init_idt(idt.data());
+
+    kvector<uint32_t> idt_ptr(2);
+    uint32_t idt_base = reinterpret_cast<uint32_t>(idt.data());
+    idt_ptr[0] = (sizeof(idt_entry) * 256) | (idt_base << 16);
+    idt_ptr[1] = idt_base >> 16;
+    load_idt(idt_ptr.data());
+
     cls();
+    __asm__("sti");
 
     kprint("AOS version 0.1 starting\n");
     kprint("Enumerating PCI devices \n");
     pci_enumerate();
-    
+
+    __asm__("cli");
     kprint("Reading 1 block from PIO\n");
     pio_read_block(0, 1, buffer.data());
     
     kprint("...OK\n");
     kprinthex16(buffer[0]);
+    
     for(;;);
 }
