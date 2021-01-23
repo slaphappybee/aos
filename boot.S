@@ -17,7 +17,7 @@ init:
   mov es, ax
 
   mov ah, 0x02
-  mov al, 10  # No of sectors
+  mov al, 40  # No of sectors
   mov cx, 2  # Cylinder/sector
   mov dh, 0  # Head
   mov dl, 0x80  # HD 0

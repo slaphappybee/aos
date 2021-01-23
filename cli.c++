@@ -44,16 +44,50 @@ void kprint(const char* buf) {
     con_setcurpos(curpos);
 }
 
-void kprinthex16(uint16_t val) {
-    char buf[7] = "0x0000";
+void sprinthex(char *buf, size_t digits, uint32_t val) {
     const char *hex = "0123456789abcdef";
     
-    uint8_t i = 0;
-    for(i=0; i<4; i++) {
-        buf[5-i] = hex[(val >> (4 * i)) & 0xf];
+    size_t i = 0;
+    for(i=0; i<digits; i++) {
+        buf[digits-1-i] = hex[(val >> (4 * i)) & 0xf];
     }
+}
+
+void kprinthex16(uint16_t val) {
+    char buf[7] = "0x0000";
+    sprinthex(&buf[2], 4, val);
     
     kprint(buf);
+}
+
+void kprinthex32(uint32_t val) {
+    char buf[11] = "0x00000000";
+    sprinthex(&buf[2], 8, val);
+    
+    kprint(buf);
+}
+
+void hexdump_buf(uint8_t const *data, size_t size) {
+    char buffer[3] = "00";
+    size_t i;
+    for (i = 0; i < size; i++) {
+        if (i % 16 == 0) {
+            char widebuf[11] = "00000000: ";
+            sprinthex(widebuf, 8, i);
+            kprint(widebuf);
+        }
+        sprinthex(buffer, 2, data[i]);
+        kprint(buffer);
+        if (i % 2 == 1) kprint(" ");
+        if (i % 16 == 15) kprint("\n");
+    }
+    
+    if (i % 16 != 15) kprint("\n");
+}
+
+template<class T>
+void hexdump(T const *object, size_t size) {
+    hexdump_buf(reinterpret_cast<uint8_t const *>(object), size);
 }
 
 #define PCI_CONFIG_ADDRESS 0xCF8
@@ -132,6 +166,9 @@ void pci_enumerate(void) {
 #define PIO_MASTER_IO_DRIVE_HEAD   0x01f6
 #define PIO_MASTER_IO_COMMAND      0x01f7
 
+#define PIO_MASTER_CTRL_DEVICE     0x03f6
+#define PIO_MASTER_CTRL_DRV_ADDR   0x03f7
+
 #define PIO_COMMAND_READ_SECTORS 0x20
 
 #define PIO_STATUS_DATA_REQUEST 0x08
@@ -146,7 +183,9 @@ void pio_poll_ready() {
     } while(!ready);
 }
 
-void pio_read_block(uint32_t lba_block, uint8_t sector_count, uint16_t *buffer) {    
+void pio_read_block(uint32_t lba_block, uint8_t sector_count, uint16_t *buffer) {
+    outb(0, PIO_MASTER_CTRL_DEVICE);
+    
     uint8_t set_drive_head_cmd = 0xe0 | ((lba_block >> 24) & 0x0f);
     outb(set_drive_head_cmd, PIO_MASTER_IO_DRIVE_HEAD);
     outb(sector_count, PIO_MASTER_IO_SECTOR_COUNT);
@@ -190,53 +229,91 @@ struct kallocator {
 template<class T>
 using kvector =  std::vector<T, kallocator<T>>;
 
-void load_idt(uint32_t *descriptor) {
+void load_idt(idt_entry *idt) {
+    uint32_t idt_base = reinterpret_cast<uint32_t>(idt);
+    uint32_t idt_ptr[2];
+    idt_ptr[0] = ((sizeof(idt_entry) * 256) - 1) | (idt_base << 16);
+    idt_ptr[1] = idt_base >> 16;
+
+    hexdump(idt_ptr, 8);
+    
     __asm__ (
         "lidtl (%0)"
-    :: "r"(descriptor)
+    :: "r"(idt_ptr)
     );
 }
 
-void remap_pic() {
-    outb(0x11, 0x20);
-    outb(0x11, 0xA0);
-    outb(0x20, 0x21);
-    outb(40,   0xA1);
-    outb(0x04, 0x21);
-    outb(0x02, 0xA1);
-    outb(0x01, 0x21);
-    outb(0x01, 0xA1);
-    outb(0x0,  0x21);
-    outb(0x0,  0xA1);
+template<uint8_t IRQ>
+void generic_irq_handler() {
+    kprinthex16(IRQ);
+    for(;;);
+}
+
+void irq_exception() {
+    kprint("Exception");
+    for(;;);
+}
+
+void irq_gpf(uint32_t eip) {
+    kprint("General Protection Fault at ");
+    kprinthex32(eip);
+    for(;;);
+}
+
+void irq_timer() {
+    //__asm__("pusha");
+    //kprint("Timer\n");
+    //__asm__("popa");
+    __asm__("iret");
+}
+
+void irq_syscall() {
+    kprint("Syscall\n");
+}
+
+void init_idt(idt_entry *idt) {
+    for(size_t i = 0; i < 32; i++)
+        idt[i] = idt_entry(irq_exception);
+    
+    for(size_t i = 32; i < 256; i++)
+        idt[i] = idt_entry(generic_irq_handler<255>);
+    
+    idt[13] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_gpf)));
+    idt[32] = idt_entry(irq_timer);
+    idt[0x80] = idt_entry(irq_syscall);
 }
 
 extern "C"
 void kmain() {
-    kvector<uint16_t> buffer(256);
-    kvector<idt_entry> idt(256);
-    
-    remap_pic();
-    init_idt(idt.data());
-
-    kvector<uint32_t> idt_ptr(2);
-    uint32_t idt_base = reinterpret_cast<uint32_t>(idt.data());
-    idt_ptr[0] = (sizeof(idt_entry) * 256) | (idt_base << 16);
-    idt_ptr[1] = idt_base >> 16;
-    load_idt(idt_ptr.data());
-
     cls();
-    __asm__("sti");
 
     kprint("AOS version 0.1 starting\n");
     kprint("Enumerating PCI devices \n");
     pci_enumerate();
-
-    __asm__("cli");
-    kprint("Reading 1 block from PIO\n");
-    pio_read_block(0, 1, buffer.data());
     
-    kprint("...OK\n");
-    kprinthex16(buffer[0]);
+    kprint("Preparing interrupts\n");
+    kvector<idt_entry> idt(256);
+    
+    remap_pic();
+    init_idt(idt.data());
+    load_idt(idt.data());
+    
+    __asm__("int $0x80");
+    
+    kprint("Enabling interrupts\n");
+    __asm__("sti");
+    
+    //hexdump(idt.data(), 64);
+    
+    //kprint("Back from the exception\n");
+    
+    //kprint("Reading 1 block from PIO\n");
+    
+    //kvector<uint16_t> buffer(256);
+    //pio_read_block(0, 1, buffer.data());
+    
+    //kprint("...OK\n");
+    //kprinthex16(buffer[0]);
     
     for(;;);
 }
