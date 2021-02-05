@@ -1,162 +1,9 @@
-#define FB ((volatile char*)0xb8000)
-#define FB_WIDTH 80
 #include <sys/io.h>
 #include <cstdint>
 #include <vector>
 #include "irq.h++"
-
-void con_setcurpos(uint16_t off) {
-    outb(0x0F, 0x3D4);
-	outb((off & 0xFF), 0x3D5);
-	outb(0x0E, 0x3D4);
-	outb(((off >> 8) & 0xFF), 0x3D5);
-}
-
-uint16_t con_getcurpos() {
-    uint16_t pos = 0;
-    outb(0x0F, 0x3D4);
-    pos |= inb(0x3D5);
-    outb(0x0E, 0x3D4);
-    pos |= ((uint16_t)inb(0x3D5)) << 8;
-    return pos;
-}
-
-
-void cls() {
-    for(uint16_t i=0; i<80*25; i+=2) {
-        FB[i] = 0;
-        FB[i+1] = 0x08;
-    }
-    con_setcurpos(0);
-}
-
-void kprint(const char* buf) {
-    uint16_t curpos = con_getcurpos();
-    uint16_t i=0;
-    for (; buf[i]; i++) {
-        if (buf[i] == '\n') {
-            curpos = curpos - (curpos % FB_WIDTH) + FB_WIDTH;
-        } else {
-            FB[curpos*2] = buf[i];
-            curpos++;
-        }
-    }
-    con_setcurpos(curpos);
-}
-
-void sprinthex(char *buf, size_t digits, uint32_t val) {
-    const char *hex = "0123456789abcdef";
-    
-    size_t i = 0;
-    for(i=0; i<digits; i++) {
-        buf[digits-1-i] = hex[(val >> (4 * i)) & 0xf];
-    }
-}
-
-void kprinthex16(uint16_t val) {
-    char buf[7] = "0x0000";
-    sprinthex(&buf[2], 4, val);
-    
-    kprint(buf);
-}
-
-void kprinthex32(uint32_t val) {
-    char buf[11] = "0x00000000";
-    sprinthex(&buf[2], 8, val);
-    
-    kprint(buf);
-}
-
-void hexdump_buf(uint8_t const *data, size_t size) {
-    char buffer[3] = "00";
-    size_t i;
-    for (i = 0; i < size; i++) {
-        if (i % 16 == 0) {
-            char widebuf[11] = "00000000: ";
-            sprinthex(widebuf, 8, i);
-            kprint(widebuf);
-        }
-        sprinthex(buffer, 2, data[i]);
-        kprint(buffer);
-        if (i % 2 == 1) kprint(" ");
-        if (i % 16 == 15) kprint("\n");
-    }
-    
-    if (i % 16 != 15) kprint("\n");
-}
-
-template<class T>
-void hexdump(T const *object, size_t size) {
-    hexdump_buf(reinterpret_cast<uint8_t const *>(object), size);
-}
-
-#define PCI_CONFIG_ADDRESS 0xCF8
-#define PCI_CONFIG_DATA 0xCFC
-
-uint16_t pci_cfg_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
-    uint32_t address;
-    uint32_t lbus  = (uint32_t)bus;
-    uint32_t lslot = (uint32_t)slot;
-    uint32_t lfunc = (uint32_t)func;
-    uint16_t tmp = 0;
- 
-    /* create configuration address as per Figure 1 */
-    address = (uint32_t)((lbus << 16) | (lslot << 11) |
-              (lfunc << 8) | (offset & 0xfc) | ((uint32_t)0x80000000));
- 
-    /* write out the address */
-    outl(address, PCI_CONFIG_ADDRESS);
-    /* read in the data */
-    /* (offset & 2) * 8) = 0 will choose the first word of the 32 bits register */
-    tmp = (uint16_t)((inl(PCI_CONFIG_DATA) >> ((offset & 2) * 8)) & 0xffff);
-    return (tmp);
-}
-
-void pci_describe(uint8_t bus, uint8_t device, uint8_t function) {
-    uint16_t vendor_id;
-    uint16_t device_id;
-    uint16_t class_code;
-    uint16_t header_type;
-    uint16_t id;
-    vendor_id = pci_cfg_read_word(bus, device, 0, 0);
-    if(vendor_id == 0xFFFF) return;
-
-    device_id = pci_cfg_read_word(bus, device, 0, 2);
-    class_code = pci_cfg_read_word(bus, device, 0, 10);
-    
-    header_type = pci_cfg_read_word(bus, device, 0, 14);
-    
-    kprint("Id: ");
-    id = (bus << 8) | (device << 4) | function;
-    kprinthex16(id);
-    kprint(", vendor: ");
-    kprinthex16(vendor_id);
-    kprint(", device: ");
-    kprinthex16(device_id);
-    kprint(", class: ");
-    kprinthex16(class_code);
-    kprint(", header: ");
-    kprinthex16(header_type);
-    kprint("\n");
-    
-//     if((function == 0) && (header_type & 0x80)) {
-//         uint8_t function;
-//         for(function = 1; function < 8; function++) {
-//             pci_describe(bus, device, function);
-//         }
-//     }
-}
- 
-void pci_enumerate(void) {
-     uint16_t bus;
-     uint8_t device;
-    
-     for(bus = 0; bus < 256; bus++) {
-         for(device = 0; device < 32; device++) {
-             pci_describe(bus, device, 0);
-         }
-     }
-}
+#include "console.h++"
+#include "pci.h++"
 
 #define PIO_MASTER_IO_DATA         0x01f0
 #define PIO_MASTER_IO_SECTOR_COUNT 0x01f2
@@ -260,10 +107,16 @@ void irq_gpf(uint32_t eip) {
     for(;;);
 }
 
+void irq_eopcode(uint32_t eip) {
+    kprint("Invalid Opcode at ");
+    kprinthex32(eip);
+    for(;;);
+}
+
 void irq_timer() {
-    //__asm__("pusha");
-    //kprint("Timer\n");
-    //__asm__("popa");
+    __asm__("pusha");
+    kprint("Timer\n");
+    __asm__("popa");
     __asm__("iret");
 }
 
@@ -274,6 +127,8 @@ void irq_syscall() {
 void init_idt(idt_entry *idt) {
     for(size_t i = 0; i < 32; i++)
         idt[i] = idt_entry(irq_exception);
+
+    idt[6] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_eopcode)));;
     
     for(size_t i = 32; i < 256; i++)
         idt[i] = idt_entry(generic_irq_handler<255>);
