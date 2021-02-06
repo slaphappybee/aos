@@ -120,7 +120,6 @@ void irq_timer_thunk();
 
 extern "C"
 void irq_timer() {
-    kprint("Timer\n");
     outb(0x20, 0x20);
 }
 
@@ -130,6 +129,16 @@ void irq_ata_thunk();
 extern "C"
 void irq_ata() {
     kprint("ATA\n");
+    outb(0x20, 0x20);
+}
+
+extern "C"
+void irq_kbd_thunk();
+
+extern "C"
+void irq_kbd() {
+    kprint("K\n");
+    inb(0x60);
     outb(0x20, 0x20);
 }
 
@@ -150,6 +159,7 @@ void init_idt(idt_entry *idt) {
     idt[0x20] = idt_entry(irq_timer_thunk);
     idt[0x2e] = idt_entry(irq_ata_thunk);
     idt[0x80] = idt_entry(irq_syscall);
+    idt[0x21] = idt_entry(irq_kbd_thunk);
 }
 
 extern "C"
