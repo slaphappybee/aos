@@ -115,10 +115,22 @@ void irq_eopcode(uint32_t eip) {
     for(;;);
 }
 
-void irq_timer(uint32_t param) {
+void irq_timer() {
+    //__asm__("xchgw %bx, %bx");
     __asm__("pusha");
     kprint("Timer\n");
+    outb(0x20, 0x20);
     __asm__("popa");
+    __asm__("add $0x1c, %esp");
+    __asm__("iret");
+}
+
+void irq_ata() {
+    __asm__("pusha");
+    kprint("ATA\n");
+    outb(0x20, 0x20);
+    __asm__("popa");
+    __asm__("add $0x1c, %esp");
     __asm__("iret");
 }
 
@@ -137,7 +149,7 @@ void init_idt(idt_entry *idt) {
     
     idt[13] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_gpf)));
     idt[32] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_timer)));
-    idt[0x2e] = idt_entry(generic_irq_handler<0x2e>);
+    idt[0x2e] = idt_entry(irq_ata);
     idt[0x80] = idt_entry(irq_syscall);
 }
 
