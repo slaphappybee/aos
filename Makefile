@@ -12,8 +12,11 @@ kernel.o: kernel.S
 kernel.bin: kernel.o cli.o console.o pci.o
 	ld -o kernel.bin --oformat binary -e start kernel.o cli.o console.o pci.o -T kernel.ld -melf_i386 --gc-sections
 
-image.bin: kernel.bin boot.bin
-	cat boot.bin kernel.bin > image.bin
+kernel.elf: kernel.o cli.o console.o pci.o
+	ld -o kernel.elf -e start kernel.o cli.o console.o pci.o -T kernel.ld -melf_i386 --gc-sections
+
+image.bin: kernel.elf boot.bin
+	cat boot.bin kernel.elf > image.bin
 
 test: image.bin
 	qemu-system-x86_64 -drive file=image.bin,if=ide,format=raw

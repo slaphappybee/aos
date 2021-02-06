@@ -18,7 +18,9 @@ init:
 
   mov ah, 0x02
   mov al, 40  # No of sectors
-  mov cx, 2  # Cylinder/sector
+  
+  # ELF file at 0x200 + EOF Offset 0x1000 -> Cylinder 9 -> cl=10
+  mov cx, 10  # Cylinder/sector
   mov dh, 0  # Head
   mov dl, 0x80  # HD 0
   mov bx, 0x8000
