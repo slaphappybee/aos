@@ -26,15 +26,12 @@ objdump: kernel.o
 
 cli.o: cli.c++ irq.h++
 	g++ -c cli.c++ -O2 -m32 -fno-pie -fno-stack-protector -std=c++20
-	objcopy --remove-section=.comment --remove-section=.eh_frame cli.o cli.o
 
 console.o: *.h++ console.c++
 	g++ -c console.c++ -O2 -m32 -fno-pie -fno-stack-protector -std=c++20
-	objcopy --remove-section=.comment --remove-section=.eh_frame console.o console.o
 
 pci.o: *.h++ pci.c++
 	g++ -c pci.c++ -O2 -m32 -fno-pie -fno-stack-protector -std=c++20
-	objcopy --remove-section=.comment --remove-section=.eh_frame pci.o pci.o
 	
 clean:
 	rm *.o *.bin
