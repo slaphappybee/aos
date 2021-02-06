@@ -65,7 +65,7 @@ struct kallocator {
     typedef T value_type;
     
     T* allocate(std::size_t size) {
-        return static_cast<T *>(kmalloc(size));
+        return static_cast<T *>(kmalloc(size * sizeof (T)));
     }
     
     void deallocate(T *value, std::size_t size) {
@@ -101,9 +101,11 @@ void irq_exception() {
     for(;;);
 }
 
-void irq_gpf(uint32_t eip) {
+void irq_gpf(uint32_t eip, uint32_t sgt) {
     kprint("General Protection Fault at ");
     kprinthex32(eip);
+    kprint(" due to: ");
+    kprinthex32(sgt);
     for(;;);
 }
 
@@ -113,7 +115,7 @@ void irq_eopcode(uint32_t eip) {
     for(;;);
 }
 
-void irq_timer() {
+void irq_timer(uint32_t param) {
     __asm__("pusha");
     kprint("Timer\n");
     __asm__("popa");
@@ -134,7 +136,8 @@ void init_idt(idt_entry *idt) {
         idt[i] = idt_entry(generic_irq_handler<255>);
     
     idt[13] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_gpf)));
-    idt[32] = idt_entry(irq_timer);
+    idt[32] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_timer)));
+    idt[0x2e] = idt_entry(generic_irq_handler<0x2e>);
     idt[0x80] = idt_entry(irq_syscall);
 }
 
@@ -152,7 +155,6 @@ void kmain() {
     remap_pic();
     init_idt(idt.data());
     load_idt(idt.data());
-    
     __asm__("int $0x80");
     
     kprint("Enabling interrupts\n");
@@ -162,13 +164,14 @@ void kmain() {
     
     //kprint("Back from the exception\n");
     
-    //kprint("Reading 1 block from PIO\n");
+    kprint("Reading 1 block from PIO\n");
     
-    //kvector<uint16_t> buffer(256);
-    //pio_read_block(0, 1, buffer.data());
+    hexdump(&idt[0x20], sizeof (idt_entry));
+    kvector<uint16_t> buffer(256);
+    pio_read_block(0, 1, buffer.data());
     
-    //kprint("...OK\n");
-    //kprinthex16(buffer[0]);
+    kprint("...OK\n");
+    hexdump(&idt[0x20], sizeof (idt_entry));
     
     for(;;);
 }

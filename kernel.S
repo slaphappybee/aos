@@ -68,9 +68,10 @@ protected16:
 protected32:
   mov ax, 0x28
   mov ds, ax
-  mov ss, ax
-  mov gs, ax
+  mov es, ax
   mov fs, ax
+  mov gs, ax
+  mov ss, ax
   mov edi, 0xb8000
   mov al, 'Y'
   mov [edi], al
