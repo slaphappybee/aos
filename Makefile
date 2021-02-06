@@ -9,11 +9,14 @@ boot.bin: boot.o
 kernel.o: kernel.S
 	as -msyntax=intel -mnaked-reg kernel.S -o kernel.o --32
 
+irq_thunk.o: irq_thunk.S
+	as -msyntax=intel -mnaked-reg irq_thunk.S -o irq_thunk.o --32
+
 kernel.bin: kernel.o cli.o console.o pci.o
 	ld -o kernel.bin --oformat binary -e start kernel.o cli.o console.o pci.o -T kernel.ld -melf_i386 --gc-sections
 
-kernel.elf: kernel.o cli.o console.o pci.o
-	ld -o kernel.elf -e start kernel.o cli.o console.o pci.o -T kernel.ld -melf_i386 --gc-sections
+kernel.elf: kernel.o cli.o console.o pci.o irq_thunk.o
+	ld -o kernel.elf -e start kernel.o cli.o console.o pci.o irq_thunk.o -T kernel.ld -melf_i386 --gc-sections
 
 image.bin: kernel.elf boot.bin
 	cat boot.bin kernel.elf > image.bin

@@ -115,23 +115,22 @@ void irq_eopcode(uint32_t eip) {
     for(;;);
 }
 
+extern "C"
+void irq_timer_thunk();
+
+extern "C"
 void irq_timer() {
-    //__asm__("xchgw %bx, %bx");
-    __asm__("pusha");
     kprint("Timer\n");
     outb(0x20, 0x20);
-    __asm__("popa");
-    __asm__("add $0x1c, %esp");
-    __asm__("iret");
 }
 
+extern "C"
+void irq_ata_thunk();
+
+extern "C"
 void irq_ata() {
-    __asm__("pusha");
     kprint("ATA\n");
     outb(0x20, 0x20);
-    __asm__("popa");
-    __asm__("add $0x1c, %esp");
-    __asm__("iret");
 }
 
 void irq_syscall() {
@@ -142,14 +141,14 @@ void init_idt(idt_entry *idt) {
     for(size_t i = 0; i < 32; i++)
         idt[i] = idt_entry(irq_exception);
 
-    idt[6] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_eopcode)));;
+    idt[0x06] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_eopcode)));;
     
     for(size_t i = 32; i < 256; i++)
         idt[i] = idt_entry(generic_irq_handler<255>);
     
-    idt[13] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_gpf)));
-    idt[32] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_timer)));
-    idt[0x2e] = idt_entry(irq_ata);
+    idt[0x0d] = idt_entry(reinterpret_cast<void (*)()>(reinterpret_cast<void*>(irq_gpf)));
+    idt[0x20] = idt_entry(irq_timer_thunk);
+    idt[0x2e] = idt_entry(irq_ata_thunk);
     idt[0x80] = idt_entry(irq_syscall);
 }
 
