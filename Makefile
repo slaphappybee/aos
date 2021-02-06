@@ -17,6 +17,7 @@ kernel.elf: kernel.o cli.o console.o pci.o
 
 image.bin: kernel.elf boot.bin
 	cat boot.bin kernel.elf > image.bin
+	./pad.sh 12288 image.bin
 
 test: image.bin
 	qemu-system-x86_64 -drive file=image.bin,if=ide,format=raw
