@@ -14,7 +14,7 @@ boot.bin: boot.o
 .S.o:
 	as $(ASFLAGS) $< -o $@
 
-kernel.elf: kernel.o cli.o console.o pci.o irq_thunk.o
+kernel.elf: kernel.o cli.o console.o pci.o irq_thunk.o kbd.o
 	ld -o kernel.elf -e start $^ -T kernel.ld -melf_i386 --gc-sections
 
 image.bin: kernel.elf boot.bin

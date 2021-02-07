@@ -4,6 +4,7 @@
 #include "irq.h++"
 #include "console.h++"
 #include "pci.h++"
+#include "kbd.h++"
 
 #define PIO_MASTER_IO_DATA         0x01f0
 #define PIO_MASTER_IO_SECTOR_COUNT 0x01f2
@@ -129,16 +130,6 @@ void irq_ata_thunk();
 extern "C"
 void irq_ata() {
     kprint("ATA\n");
-    outb(0x20, 0x20);
-}
-
-extern "C"
-void irq_kbd_thunk();
-
-extern "C"
-void irq_kbd() {
-    kprint("K\n");
-    inb(0x60);
     outb(0x20, 0x20);
 }
 
